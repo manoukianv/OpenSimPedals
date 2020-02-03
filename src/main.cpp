@@ -75,13 +75,14 @@ void loop() {
 
   long raw_value, raw_brake, raw_throttle;
 
-  //if ( keycode == 0 ) {
-    keycode = u8g2.getMenuEvent();
-    Serial.println(keycode);
-  //}
+  keycode = u8g2.getMenuEvent();
+  Serial.println(keycode);
 
   // if press the select menu,
   if ( keycode == U8X8_MSG_GPIO_MENU_HOME ) {
+
+    keycode = 0;
+    
     u8g2.setFont(u8g2_font_courR10_tr);
     u8g2.clearBuffer();
     
@@ -94,8 +95,6 @@ void loop() {
                                     "Percent= ", &v, 0, 100, 3, " %");
 
     drawBox();
-
-    keycode = 0;
   }
 
 

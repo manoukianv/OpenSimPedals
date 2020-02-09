@@ -7,9 +7,7 @@
 #define ADC_FITLER(value)  (value >> 7)
 // Apply the gain and max the output if overload
 #define JOYSTICK_GAIN(value, gain) (((value) * 100)/(gain)  > INT16_MAX) ? INT16_MAX : ((value) * 100)/(gain)
-
-int throttle_pc = 100;
-int throttle_deadzone_pc = 1;
+#define JOYSTICK_DEADZONE(value, deadzone) ( ((value) / 32767.0) < ((deadzone) * 0.01) ) ? 0 : (value)
 
 // prototype
 void drawBox();
@@ -33,23 +31,23 @@ void loadDataEEPROM() {
   throttle_pct_range    = CHECK_RANGE(throttle_pct_range, 100);
   brake_pct_range       = CHECK_RANGE(brake_pct_range, 100);
   clutch_pct_range      = CHECK_RANGE(clutch_pct_range, 100);
-  throttle_pct_deadzone = CHECK_RANGE(throttle_pct_range, 2);
-  brake_pct_deadzone    = CHECK_RANGE(brake_pct_range, 2);
-  clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_range, 2);
+  throttle_pct_deadzone = CHECK_RANGE(throttle_pct_deadzone, 10);
+  brake_pct_deadzone    = CHECK_RANGE(brake_pct_deadzone, 10);
+  clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_deadzone, 10);
 }
 
 void setup() {
   // Initialize Joystick Library
   #if !DEBUG
-    Joystick.begin();
     // Set the range throttle
-    Joystick.setThrottleRange (0, INT16_MAX);
-    Joystick.setBrakeRange    (0, INT16_MAX);
-    Joystick.setRzAxisRange   (0, INT16_MAX);
+    Joystick.setXAxisRange (0, INT16_MAX);
+    Joystick.setYAxisRange (0, INT16_MAX);
+    Joystick.setZAxisRange (0, INT16_MAX);
+    Joystick.begin();
   #else
-    delay(2000);
+    delay(500);
     Serial.begin(9600);
-    delay(1000);
+    delay(500);
     Serial.println("test");
   #endif
 
@@ -64,11 +62,11 @@ void setup() {
   displayData(random(0, INT16_MAX), random(0, INT16_MAX), random(0, INT16_MAX));
   
   // Init the ADC
-  long value_long;
-  break_throttle_sensor.begin(ADS_BRAKE_THROTTLE_DOUT, ADS_BRAKE_THROTTLE_SCLK, ADS_BRAKE_THROTTLE_PDWN, ADS_BRAKE_THROTTLE_GAIN0, ADS_BRAKE_THROTTLE_GAIN1, ADS_BRAKE_THROTTLE_SPEED, ADS_BRAKE_THROTTLE_A0, ADS_BRAKE_THROTTLE_A1, GAIN128, FAST);
-  //while ( !break_throttle_sensor.is_ready() ) {}       // Wait until the ADS is ready
-  break_throttle_sensor.read(AIN1, value_long, true);  // Read a first value with a calibration process to remove spring compression offset
-  break_throttle_sensor.read(AIN2, value_long, true);  // Read a first value with a calibration process to remove spring compression offset
+  break_sensor.begin(ADS_BRAKE_THROTTLE_DOUT, ADS_BRAKE_THROTTLE_SCLK, ADS_BRAKE_THROTTLE_PDWN, ADS_BRAKE_THROTTLE_GAIN0, ADS_BRAKE_THROTTLE_GAIN1, ADS_BRAKE_THROTTLE_SPEED, ADS_BRAKE_THROTTLE_A0, ADS_BRAKE_THROTTLE_A1, GAIN128, FAST);
+  while ( !break_sensor.is_ready() ) {}       // Wait until the ADS is ready
+  Serial.println("end wait init");
+  delay(1000);
+  break_sensor.tare(AIN1, 20, true);
 }
 
 void loop() {
@@ -76,18 +74,21 @@ void loop() {
   long raw_value, raw_brake, raw_throttle;
 
   keycode = u8g2.getMenuEvent();
-  Serial.println(keycode);
+  //Serial.println(keycode);
 
   // if press the select menu,
   if ( keycode == U8X8_MSG_GPIO_MENU_HOME ) {
 
     keycode = 0;
-    
+
     u8g2.setFont(u8g2_font_courR10_tr);
     u8g2.clearBuffer();
     
     uint8_t current_selection = u8g2.userInterfaceSelectionList("Parameters", current_selection, parameters_list);
-    if (current_selection==0) return;
+    if (current_selection==0) {
+      drawBox();
+      return;
+    }
 
     uint8_t v=50;
     u8g2.clearBuffer();
@@ -100,32 +101,37 @@ void loop() {
 
 
   // read the throttle position on the loadcell
+  /*
   break_throttle_sensor.read(AIN1, raw_value);          // value read are from +/-10mv on 40mV ADC range, so we read a 22 bits signal
+  raw_value -= long(break_throttle_sensor.get_offset(AIN1));
   raw_throttle = ADC_FITLER(raw_value);                 // keep 15bits and use gain software
-  raw_value = JOYSTICK_GAIN(raw_throttle, throttle_pct_range); 
+  raw_throttle = JOYSTICK_GAIN(raw_throttle, throttle_pct_range); 
+  raw_throttle = JOYSTICK_DEADZONE(raw_throttle, throttle_pct_deadzone);
   // set the throttle prosition on the joystick
-  Joystick.setThrottle(raw_value);
+  Joystick.setXAxis(raw_throttle);
   #if DEBUG
-    Serial.print("Throttle : " + raw_throttle);
-    Serial.print("(+" + throttle_pct_range);
-    Serial.println("%) => " + raw_value);
-  #endif
+    Serial.print("Throttle : " + String(raw_brake));
+    Serial.print("(+" + String(throttle_pct_range));
+    Serial.print("%|" + String(throttle_pct_deadzone));
+    Serial.println("%) <= " + String(raw_value) + "|" + String(break_throttle_sensor.get_offset(AIN1)));
+  #endif*/
 
   // read the brake position on the loadcell
-  break_throttle_sensor.read(AIN2, raw_value);          // value read are from +/-10mv on 40mV ADC range, so we read a 22 bits signal
+  break_sensor.read(AIN1, raw_value);          // value read are from +/-10mv on 40mV ADC range, so we read a 22 bits signal
+  raw_value -= long(break_sensor.get_offset(AIN1));
   raw_brake = ADC_FITLER(raw_value);                    // keep 15bits and use gain software
-  raw_value = JOYSTICK_GAIN(raw_brake, brake_pct_range); 
+  raw_brake = JOYSTICK_GAIN(raw_brake, brake_pct_range); 
+  raw_brake = JOYSTICK_DEADZONE(raw_brake, brake_pct_deadzone);
   // set the brake prosition on the joystick
-  Joystick.setBrake(raw_value);
+  Joystick.setYAxis(raw_brake);
   #if DEBUG
-    Serial.print("Brake : " + raw_brake);
-    Serial.print("(+" + brake_pct_range);
-    Serial.println("%) => " + raw_value);
+    Serial.print("Brake : " + String(raw_brake));
+    Serial.print("(+" + String(brake_pct_range));
+    Serial.print("%|" + String(brake_pct_deadzone));
+    Serial.println("%) <= " + String(raw_value) + "|" + String(break_throttle_sensor.get_offset(AIN2)));
   #endif
 
-  //displayData((int16_t)raw_throttle, (int16_t)raw_brake, (int16_t)0);
-
-  delay(10);
+  displayData((int16_t)raw_throttle, (int16_t)raw_brake, (int16_t)0);
 }
 
 void drawBox() {
@@ -138,26 +144,23 @@ void drawBox() {
   u8g2.setDrawColor(1);
   u8g2.setFont(u8g2_font_courB14_tr); //ncenB18
   u8g2.drawStr(0, 32, "T");
-  u8g2.drawFrame(20, 21, 56, 7);
+  u8g2.drawFrame(20, 21, 106, 7);
   u8g2.drawStr(0, 48, "B");
-  u8g2.drawFrame(20, 37, 56, 7);
+  u8g2.drawFrame(20, 37, 106, 7);
   u8g2.drawStr(0, 64, "C");
-  u8g2.drawFrame(20, 53, 56, 7);
+  u8g2.drawFrame(20, 53, 106, 7);
   u8g2.sendBuffer();					        // transfer internal memory to the display
 }
 
 void displayData(int16_t throttle, int16_t brake, int16_t clutch) {
   u8g2.setDrawColor(0);
-  u8g2.drawBox(22, 23, 50, 3);
-  u8g2.drawBox(22, 39, 50, 3);
-  u8g2.drawBox(22, 55, 50, 3);
+  u8g2.drawBox(22, 23, 100, 3);
+  u8g2.drawBox(22, 39, 100, 3);
+  u8g2.drawBox(22, 55, 100, 3);
   u8g2.setDrawColor(1);
-  float thro = 50 * (throttle / (INT16_MAX * 1.0));
-  float brak = 50 * (brake / (INT16_MAX * 1.0));
-  float clut = 50 * (clutch / (INT16_MAX * 1.0));
-  Serial.println(thro);
-  Serial.println(brak);
-  Serial.println(clut);
+  float thro = 100 * (throttle / (INT16_MAX * 1.0));
+  float brak = 100 * (brake / (INT16_MAX * 1.0));
+  float clut = 100 * (clutch / (INT16_MAX * 1.0));
   u8g2.drawBox(22, 23, thro, 3);
   u8g2.drawBox(22, 39, brak, 3);
   u8g2.drawBox(22, 55, clut, 3);

@@ -51,7 +51,7 @@ void ADS123X::begin(byte pin_DOUT, byte pin_SCLK, byte pin_PDWN, byte pin_GAIN0,
 
 }
 
-bool ADS123X::is_ready(void)
+bool ADS123X::  is_ready(void)
 {
   return digitalRead(_pin_DOUT) == LOW;
 }

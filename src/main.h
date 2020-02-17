@@ -5,7 +5,7 @@
 #include <U8g2lib.h>
 #include <EEPROMex.h>
 
-#define DEBUG false
+#define DEBUG true
 
 // ************************************************************** PINOUT ************************************************************
 #define ADS_BRAKE_THROTTLE_DOUT   8

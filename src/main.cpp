@@ -31,9 +31,9 @@ void loadDataEEPROM() {
   throttle_pct_range    = CHECK_RANGE(throttle_pct_range, 100);
   brake_pct_range       = CHECK_RANGE(brake_pct_range, 100);
   clutch_pct_range      = CHECK_RANGE(clutch_pct_range, 100);
-  throttle_pct_deadzone = CHECK_RANGE(throttle_pct_deadzone, 10);
-  brake_pct_deadzone    = CHECK_RANGE(brake_pct_deadzone, 10);
-  clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_deadzone, 10);
+  throttle_pct_deadzone = CHECK_RANGE(throttle_pct_deadzone, 2);
+  brake_pct_deadzone    = CHECK_RANGE(brake_pct_deadzone, 2);
+  clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_deadzone, 2);
 }
 
 void setup() {
@@ -128,7 +128,7 @@ void loop() {
     Serial.print("Brake : " + String(raw_brake));
     Serial.print("(+" + String(brake_pct_range));
     Serial.print("%|" + String(brake_pct_deadzone));
-    Serial.println("%) <= " + String(raw_value) + "|" + String(break_throttle_sensor.get_offset(AIN2)));
+    Serial.println("%) <= " + String(raw_value) + "|" + String(break_sensor.get_offset(AIN1)));
   #endif
 
   displayData((int16_t)raw_throttle, (int16_t)raw_brake, (int16_t)0);

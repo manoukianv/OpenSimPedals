@@ -5,7 +5,7 @@
 #include <U8g2lib.h>
 #include <EEPROMex.h>
 
-#define DEBUG true
+#define DEBUG false
 
 // ************************************************************** PINOUT ************************************************************
 #define ADS_BRAKE_THROTTLE_DOUT   8
@@ -20,12 +20,21 @@
 // ************************************************************** EEPROM ************************************************************
 const int maxAllowedWrites = 80;
 const int memBase          = 350;
+
 byte throttle_pct_range;
 byte throttle_pct_deadzone;
 byte brake_pct_range;
 byte brake_pct_deadzone;
 byte clutch_pct_range;
 byte clutch_pct_deadzone;
+
+int throttle_pct_range_addr;
+int throttle_pct_deadzone_addr;
+int brake_pct_range_addr;
+int brake_pct_deadzone_addr;
+int clutch_pct_range_addr;
+int clutch_pct_deadzone_addr;
+
 const char *parameters_list = 
   "Throttle Range\n"
   "Throttle Dead Zone\n"

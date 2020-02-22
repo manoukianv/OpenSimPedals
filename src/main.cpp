@@ -11,22 +11,23 @@
 
 // prototype
 void drawBox();
+void drawWelcome();
+void drawSaving();
 void displayData(int16_t throttle, int16_t brake, int16_t clutch);
 
 void loadDataEEPROM() {
-  long address;
-  address               = EEPROM.getAddress(sizeof(byte)); // read in eeprom the throttle param
-  throttle_pct_range    = EEPROM.readByte(address);
-  address               = EEPROM.getAddress(sizeof(byte));
-  throttle_pct_deadzone = EEPROM.readByte(address);
-  address               = EEPROM.getAddress(sizeof(byte)); // read in eeprom the break param
-  brake_pct_range       = EEPROM.readByte(address);
-  address               = EEPROM.getAddress(sizeof(byte));
-  brake_pct_deadzone    = EEPROM.readByte(address);
-  address               = EEPROM.getAddress(sizeof(byte)); // read in eeprom the clutch param
-  clutch_pct_range      = EEPROM.readByte(address);
-  address               = EEPROM.getAddress(sizeof(byte));
-  clutch_pct_deadzone   = EEPROM.readByte(address);
+  throttle_pct_range_addr = EEPROM.getAddress(sizeof(byte)); // read in eeprom the throttle param
+  throttle_pct_range    = EEPROM.readByte(throttle_pct_range_addr);
+  throttle_pct_deadzone_addr = EEPROM.getAddress(sizeof(byte));
+  throttle_pct_deadzone = EEPROM.readByte(throttle_pct_deadzone_addr);
+  brake_pct_range_addr  = EEPROM.getAddress(sizeof(byte)); // read in eeprom the break param
+  brake_pct_range       = EEPROM.readByte(brake_pct_range_addr);
+  brake_pct_deadzone_addr = EEPROM.getAddress(sizeof(byte));
+  brake_pct_deadzone    = EEPROM.readByte(brake_pct_deadzone_addr);
+  clutch_pct_range_addr = EEPROM.getAddress(sizeof(byte)); // read in eeprom the clutch param
+  clutch_pct_range      = EEPROM.readByte(clutch_pct_range_addr);
+  clutch_pct_deadzone_addr = EEPROM.getAddress(sizeof(byte));
+  clutch_pct_deadzone   = EEPROM.readByte(clutch_pct_deadzone_addr);
 
   throttle_pct_range    = CHECK_RANGE(throttle_pct_range, 100);
   brake_pct_range       = CHECK_RANGE(brake_pct_range, 100);
@@ -34,6 +35,21 @@ void loadDataEEPROM() {
   throttle_pct_deadzone = CHECK_RANGE(throttle_pct_deadzone, 2);
   brake_pct_deadzone    = CHECK_RANGE(brake_pct_deadzone, 2);
   clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_deadzone, 2);
+}
+
+void saveEEPROM () {
+  EEPROM.writeByte(throttle_pct_range_addr, throttle_pct_range);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeByte(throttle_pct_deadzone_addr, throttle_pct_deadzone);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeByte(brake_pct_range_addr, brake_pct_range);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeByte(brake_pct_deadzone_addr, brake_pct_deadzone);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeByte(clutch_pct_range_addr, clutch_pct_range);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeByte(clutch_pct_deadzone_addr, clutch_pct_deadzone);
+  while (!EEPROM.isReady()) delay(1);
 }
 
 void setup() {
@@ -58,8 +74,7 @@ void setup() {
 
   // Init screen
   u8g2.begin(/*Select=*/ 14, /*Right/Next=*/ A1, /*Left/Prev=*/ A2, /*Up=*/ A0, /*Down=*/ A3, /*Home/Cancel=*/ 15);
-  drawBox();
-  displayData(random(0, INT16_MAX), random(0, INT16_MAX), random(0, INT16_MAX));
+  drawWelcome();
   
   // Init the ADC
   break_sensor.begin(ADS_BRAKE_THROTTLE_DOUT, ADS_BRAKE_THROTTLE_SCLK, ADS_BRAKE_THROTTLE_PDWN, ADS_BRAKE_THROTTLE_GAIN0, ADS_BRAKE_THROTTLE_GAIN1, ADS_BRAKE_THROTTLE_SPEED, ADS_BRAKE_THROTTLE_A0, ADS_BRAKE_THROTTLE_A1, GAIN128, FAST);
@@ -67,6 +82,8 @@ void setup() {
   Serial.println("end wait init");
   delay(1000);
   break_sensor.tare(AIN1, 20, true);
+
+  drawBox();
 }
 
 void loop() {
@@ -85,16 +102,48 @@ void loop() {
     u8g2.clearBuffer();
     
     uint8_t current_selection = u8g2.userInterfaceSelectionList("Parameters", current_selection, parameters_list);
-    if (current_selection==0) {
-      drawBox();
-      return;
+    if (current_selection != 0) {
+
+      u8g2.clearBuffer();
+
+      char title[20];
+      title[0] = '\n'; 
+      u8x8_CopyStringLine(title+1, current_selection-1, parameters_list );
+
+      byte *v;
+      switch (current_selection-1)
+      {
+      case 0:
+        v = &throttle_pct_range;
+        break;
+      case 1:
+        v = &throttle_pct_deadzone;
+        break;
+      case 2:
+        v = &brake_pct_range;
+        break;
+      case 3:
+        v = &brake_pct_deadzone;
+        break;
+      case 4:
+        v = &clutch_pct_range;
+        break;
+      case 5:
+        v = &clutch_pct_deadzone;
+        break;
+      
+      default:
+        break;
+      } 
+
+      int input = u8g2.userInterfaceInputValue( title, "Percent= ", v, 0, 200, 3, " %");
+      if (input==1) {
+        drawSaving();
+        saveEEPROM();
+        delay(2000);
+      }
     }
-
-    uint8_t v=50;
-    u8g2.clearBuffer();
-    u8g2.userInterfaceInputValue(  "yrdt", 
-                                    "Percent= ", &v, 0, 100, 3, " %");
-
+    
     drawBox();
   }
 
@@ -132,6 +181,32 @@ void loop() {
   #endif
 
   displayData((int16_t)raw_throttle, (int16_t)raw_brake, (int16_t)0);
+}
+
+void drawWelcome() {
+  u8g2.clearBuffer();
+  u8g2.setDrawColor(1);
+  u8g2.drawBox(0, 0, 128, 16);
+  u8g2.setFont(u8g2_font_courR08_tr);
+  u8g2.setDrawColor(0);
+  u8g2.drawStr(30, 11, "WELCOME !");
+  u8g2.setDrawColor(1);
+  u8g2.setFont(u8g2_font_courB14_tr); //ncenB18
+  u8g2.drawStr(0, 40, "CALIBRATION");
+  u8g2.sendBuffer();					        // transfer internal memory to the display
+}
+
+void drawSaving() {
+  u8g2.clearBuffer();
+  u8g2.setDrawColor(1);
+  u8g2.drawBox(0, 0, 128, 16);
+  u8g2.setFont(u8g2_font_courR08_tr);
+  u8g2.setDrawColor(0);
+  u8g2.drawStr(30, 11, "Preferences");
+  u8g2.setDrawColor(1);
+  u8g2.setFont(u8g2_font_courB14_tr); //ncenB18
+  u8g2.drawStr(0, 40, "SAVING...");
+  u8g2.sendBuffer();					        // transfer internal memory to the display
 }
 
 void drawBox() {

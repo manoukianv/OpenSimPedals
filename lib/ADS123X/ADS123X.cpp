@@ -38,20 +38,20 @@ void ADS123X::begin(byte pin_DOUT, byte pin_SCLK, byte pin_PDWN, byte pin_GAIN0,
   pinMode(_pin_DOUT,  INPUT_PULLUP);
   pinMode(_pin_SCLK, OUTPUT);
   pinMode(_pin_PDWN, OUTPUT);
-  pinMode(_pin_GAIN0, OUTPUT);
-  pinMode(_pin_GAIN1, OUTPUT);
-  pinMode(_pin_SPEED, OUTPUT);
-  pinMode(_pin_A0, OUTPUT);
-  pinMode(_pin_A1_or_TEMP, OUTPUT);
+  if (_pin_GAIN0 != -1) pinMode(_pin_GAIN0, OUTPUT);
+  if (_pin_GAIN1 != -1) pinMode(_pin_GAIN1, OUTPUT);
+  if (_pin_SPEED != -1) pinMode(_pin_SPEED, OUTPUT);
+  if (_pin_A0 != -1)    pinMode(_pin_A0, OUTPUT);
+  if (_pin_A1_or_TEMP != -1) pinMode(_pin_A1_or_TEMP, OUTPUT);
   
-  setGain(gain);
-  setSpeed(speed);
+  if (_pin_GAIN0 != -1) setGain(gain);
+  if (_pin_GAIN0 != -1) setSpeed(speed);
   
   power_up();
 
 }
 
-bool ADS123X::  is_ready(void)
+bool ADS123X::is_ready(void)
 {
   return digitalRead(_pin_DOUT) == LOW;
 }
@@ -123,6 +123,7 @@ void ADS123X::setSpeed(Speed speed)
 
 void ADS123X::setChannel(Channel channel)
 {
+  if (_pin_A0 = -1) return;
   switch(channel)
   {
     case AIN1:
@@ -169,8 +170,8 @@ void ADS123X::setChannel(Channel channel)
  */
 ERROR_t ADS123X::read(Channel channel,long& value, bool Calibrating)
 {
-    int i=0;
-    unsigned long start;
+  int i=0;
+  unsigned long start;
 	unsigned int waitingTime;
 	unsigned int SettlingTimeAfterChangeChannel=0;
 	
@@ -182,12 +183,12 @@ ERROR_t ADS123X::read(Channel channel,long& value, bool Calibrating)
 		lastChannel=channel;
 	}
 	
-    /* A high to low transition on the data pin means that the ADS1231
-     * has finished a measurement (see datasheet page 13).
-     * This can take up to 100ms (the ADS1231 runs at 10 samples per
-     * second!).
-     * Note that just testing for the state of the pin is unsafe.
-     */
+  /* A high to low transition on the data pin means that the ADS1231
+    * has finished a measurement (see datasheet page 13).
+    * This can take up to 100ms (the ADS1231 runs at 10 samples per
+    * second!).
+    * Note that just testing for the state of the pin is unsafe.
+    */
 	 
 	if(Calibrating){
 		if(_speed==FAST) waitingTime=150;

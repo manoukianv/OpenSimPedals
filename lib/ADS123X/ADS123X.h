@@ -65,7 +65,7 @@ class ADS123X
 		virtual ~ADS123X();
 		
         // Initialize library
-        void begin(byte pin_DOUT, byte pin_SCLK, byte pin_PDWN, byte pin_GAIN0, byte pin_GAIN1, byte pin_SPEED, byte pin_A0, byte pin_A1_or_TEMP, Gain = GAIN128, Speed = SLOW);
+        void begin(byte pin_DOUT, byte pin_SCLK, byte pin_PDWN, byte pin_GAIN0 = -1, byte pin_GAIN1 = -1, byte pin_SPEED = -1, byte pin_A0 = -1, byte pin_A1_or_TEMP = -1, Gain = GAIN128, Speed = FAST);
 
 
 		// check if chip is ready

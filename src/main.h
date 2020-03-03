@@ -45,9 +45,9 @@
 #define ADS_BRAKE_DOUT      8
 #define ADS_BRAKE_SCLK      9
 
-#define ADS_CLUTCH_PDWN     13
-#define ADS_CLUTCH_DOUT     14
-#define ADS_CLUTCH_SCLK     15
+#define ADS_CLUTCH_PDWN     14
+#define ADS_CLUTCH_DOUT     16
+#define ADS_CLUTCH_SCLK     10
 
 // **************************************** EEPROM ****************************************
 const int maxAllowedWrites = 80;

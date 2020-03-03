@@ -139,4 +139,3 @@ class ADS123X
 };
 
 #endif /* #ifndef ADS123X_h */
-

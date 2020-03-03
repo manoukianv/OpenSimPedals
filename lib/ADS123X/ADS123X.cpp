@@ -123,7 +123,7 @@ void ADS123X::setSpeed(Speed speed)
 
 void ADS123X::setChannel(Channel channel)
 {
-  if (_pin_A0 = -1) return;
+  if (_pin_A0 == -1) return;
   switch(channel)
   {
     case AIN1:

@@ -1,3 +1,13 @@
+/**
+ * 
+ * Benchmark (Trame per second) :
+ *    3 loadcells : 26,7 tps
+ *    2 loadcells : 40,1 tps
+ *    1 loadcell  : 80,1 tps
+ * 
+ **/
+
+
 #include <Arduino.h>
 
 #include <ADS123X.h>
@@ -7,7 +17,10 @@
 
 // *************************************** FEATURES ***************************************
 
-#define DEBUG false
+#define DEBUG     true
+#define THROTTLE  false
+#define BRAKE     true
+#define CLUTCH    false
 
 // ************************************** NOT TOUCH ***************************************
 
@@ -23,14 +36,18 @@
 #define JOYSTICK_DEADZONE(value, deadzone) ( ((value) / 32767.0) < ((deadzone) * 0.01) ) ? 0 : (value)
 
 // **************************************** PINOUT ****************************************
-#define ADS_BRAKE_THROTTLE_DOUT   8
-#define ADS_BRAKE_THROTTLE_SCLK   9
-#define ADS_BRAKE_THROTTLE_PDWN   7
-#define ADS_BRAKE_THROTTLE_GAIN0  4
-#define ADS_BRAKE_THROTTLE_GAIN1  5
-#define ADS_BRAKE_THROTTLE_SPEED  6
-#define ADS_BRAKE_THROTTLE_A0     16
-#define ADS_BRAKE_THROTTLE_A1     10
+
+#define ADS_THROTTLE_PDWN   4
+#define ADS_THROTTLE_DOUT   5
+#define ADS_THROTTLE_SCLK   6
+
+#define ADS_BRAKE_PDWN      7
+#define ADS_BRAKE_DOUT      8
+#define ADS_BRAKE_SCLK      9
+
+#define ADS_CLUTCH_PDWN     13
+#define ADS_CLUTCH_DOUT     14
+#define ADS_CLUTCH_SCLK     15
 
 // **************************************** EEPROM ****************************************
 const int maxAllowedWrites = 80;
@@ -52,15 +69,21 @@ int clutch_pct_deadzone_addr;
 
 // **************************************** Joystick ****************************************
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID, JOYSTICK_TYPE_JOYSTICK, 
-                    4, 0,
+                    0, 0,
                     true, true, true, 
                     false, false, false,
                     false, false, 
                     false, false, false);
 
+#ifdef THROTTLE
 ADS123X throttle_sensor;
-ADS123X break_sensor;
+#endif
+#ifdef BRAKE
+ADS123X brake_sensor;
+#endif
+#ifdef CLUTCH
 ADS123X clutch_sensor;
+#endif
 
 // **************************************** Screen ****************************************
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
@@ -73,5 +96,3 @@ const char *parameters_list =
   "Brake Dead Zone\n"
   "Clutch Range\n"
   "Clutch Dead Zone";
-
-

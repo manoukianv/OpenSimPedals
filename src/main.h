@@ -17,7 +17,7 @@
 
 // *************************************** FEATURES ***************************************
 
-#define DEBUG     true
+#define DEBUG     false
 #define THROTTLE  false
 #define BRAKE     true
 #define CLUTCH    false

@@ -167,7 +167,7 @@ long readPedal(ADS123X& sensor, byte& range, byte& deadZone, byte idLog) {
   #if DEBUG
     char str[30];
     sprintf(str, "%d] %ld(+%d-%d) <= %ld-%.2f)", idLog, result, range, deadZone, raw_value, trunc(sensor.get_offset(AIN1)));
-    //Serial.println(str);
+    Serial.println(str);
   #endif
 
   return result;

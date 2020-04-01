@@ -5,6 +5,8 @@ This project is an open hardware Load Cell pedals for sim racing.
 ## Introduction
 Make / order the PCB (or circuit on a breadboard), flash the firwmare, and connect the USB cable to the PC : you have a new pedals Set :-D
 
+Build tutorial are available here : [Instructables](https://www.instructables.com/id/OpenSimPedals-DIY-3D-Printed-Sim-Racing-Pedals-Wit/)
+
 ## Main feature
 * Standalone : not required software on PC, pedals are seen like a Joystick, just setup the game ;)
 * In the main.h, you can choose which pedal you want, you can have 1,2 or 3 pedals.
@@ -34,7 +36,8 @@ The BOM, will be shared on thingiverse
 * Connector (KF301-4P) and button (6mm/6mm push button)
 
 ### The firmware
-Clone this repository, on it in VisualStudioCode with platformio and clic on upload.
+* Clone this repository in VisualStudioCode 
+* Platformio plugin allow you to build and upload on the arduino micro
 
 
 # Licences

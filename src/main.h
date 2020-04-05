@@ -30,12 +30,13 @@
 #include <Joystick.h>
 #include <U8g2lib.h>
 #include <EEPROMex.h>
+#include <AS5600.h>
 
 // *************************************** FEATURES ***************************************
 
 #define DEBUG     false
-#define THROTTLE  false
-#define BRAKE     true
+#define THROTTLE  true
+#define BRAKE     false
 #define CLUTCH    false
 
 // ************************************** NOT TOUCH ***************************************
@@ -92,7 +93,7 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID, JOYSTICK_TYPE_JOYSTICK,
                     false, false, false);
 
 #ifdef THROTTLE
-ADS123X throttle_sensor;
+AMS_5600 throttle_sensor;
 #endif
 #ifdef BRAKE
 ADS123X brake_sensor;

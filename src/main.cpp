@@ -33,9 +33,9 @@ long readPedal(ADS123X& sensor, byte& range, byte& deadZone, byte idLog);
 
 void setup() {
   // Set the range throttle
-  Joystick.setXAxisRange (0, INT16_MAX);
-  Joystick.setYAxisRange (0, INT16_MAX);
-  Joystick.setZAxisRange (0, INT16_MAX);
+    Joystick.setXAxisRange (0, 4096);
+    Joystick.setYAxisRange (0, INT16_MAX);
+    Joystick.setZAxisRange (0, INT16_MAX);
   #if !DEBUG
     // Initialize Joystick Library
     Joystick.begin(false);
@@ -61,10 +61,8 @@ void setup() {
   drawScreen("WELCOME !", 40, 11, "CALIBRATING", 10, 45);
 #if THROTTLE
   Serial.println("THROTTLE");
-  throttle_sensor.begin(ADS_THROTTLE_DOUT, ADS_THROTTLE_SCLK, ADS_THROTTLE_PDWN);
-  while ( !throttle_sensor.is_ready() ) { delay(1); }
-  delay(300);
-  throttle_sensor.tare(AIN1, 20, true);
+  throttle_sensor.setEndPosition(3380);
+  throttle_sensor.setStartPosition(2750);
 #endif
 #if BRAKE
   Serial.println("BRAKE");
@@ -97,7 +95,14 @@ void loop() {
   // read the load cell value
   long throttle = 0, brake = 0, clutch = 0;
 #if THROTTLE
-  throttle = readPedal(throttle_sensor, brake_pct_range, brake_pct_deadzone, 1);
+  throttle = abs(int(throttle_sensor.getScaledAngle()) - 630);
+    // set the brake prosition on the joystick
+  #if DEBUG
+    char str[30];
+    sprintf(str, "%d] <= %ld)", 1, throttle);
+    Serial.println(str);
+  #endif
+
   Joystick.setXAxis(throttle);
 #endif
 #if BRAKE

@@ -27,18 +27,20 @@ void drawScreen(const char *title, int titleX, int titleY,
                 const char* message, int messageX, int messageY,
                 const char* subMessage = nullptr, int subMessageX = 0, int subMessageY = 0);
 void checkMenu();
-long readPedal(ADS123X& sensor, byte& range, byte& deadZone, byte idLog);
+int16_t readPedalLoadCell(ADS123X& sensor, byte& range, byte& deadZone, byte idLog);
+int16_t readPedalHallSensor(AMS_5600& sensor, int& min, int& max, byte& deadZone, byte idLog);
 
 /********************************  Setup & Main *******************************/
 
 void setup() {
-  // Set the range throttle
-    Joystick.setXAxisRange (0, 4096);
-    Joystick.setYAxisRange (0, INT16_MAX);
-    Joystick.setZAxisRange (0, INT16_MAX);
   #if !DEBUG
     // Initialize Joystick Library
     Joystick.begin(false);
+
+    // Set the range throttle
+    Joystick.setXAxisRange (0, INT16_MAX);
+    Joystick.setYAxisRange (0, INT16_MAX);
+    Joystick.setZAxisRange (0, INT16_MAX);
   #else
     // Initialize Serial
     delay(1000);
@@ -61,8 +63,6 @@ void setup() {
   drawScreen("WELCOME !", 40, 11, "CALIBRATING", 10, 45);
 #if THROTTLE
   Serial.println("THROTTLE");
-  throttle_sensor.setEndPosition(3380);
-  throttle_sensor.setStartPosition(2750);
 #endif
 #if BRAKE
   Serial.println("BRAKE");
@@ -93,39 +93,39 @@ void loop() {
   checkMenu();
 
   // read the load cell value
-  long throttle = 0, brake = 0, clutch = 0;
+  int throttle = 0, brake = 0, clutch = 0;
 #if THROTTLE
-  throttle = abs(int(throttle_sensor.getScaledAngle()) - 630);
-    // set the brake prosition on the joystick
-  #if DEBUG
-    char str[30];
-    sprintf(str, "%d] <= %ld)", 1, throttle);
-    Serial.println(str);
-  #endif
-
+  throttle = readPedalHallSensor(throttle_sensor, throttle_range_min, throttle_range_max, throttle_pct_deadzone, 1);
+  #if !DEBUG
   Joystick.setXAxis(throttle);
+  #endif
 #endif
 #if BRAKE
-  brake    = readPedal(brake_sensor, brake_pct_range, brake_pct_deadzone, 2);
+  brake    = readPedalLoadCell(brake_sensor, brake_pct_range, brake_pct_deadzone, 2);
+  #if !DEBUG
   Joystick.setYAxis(brake);
+  #endif
 #endif
 #if CLUTCH
-  clutch   = readPedal(clutch_sensor, brake_pct_range, brake_pct_deadzone, 3);
+  clutch   = readPedalLoadCell(clutch_sensor, brake_pct_range, brake_pct_deadzone, 3);
+  #if !DEBUG
   Joystick.setZAxis(throttle);
+  #endif
 #endif
 #if !DEBUG
   Joystick.sendState();
 #endif
 
   // Update screen only each second : priority to trame / s on joystick
+  #if DEBUG
   count++;
   if ((millis() - old_time) > 10000 ) {
-    #if DEBUG
-      Serial.println("Nb sample / 10s :" + String(count));
-    #endif
+    Serial.println("Nb sample / 10s :" + String(count));
     old_time = millis();
     count = 0;
   }
+  #endif
+
   if ((millis() - time_click) < 30000 ) {
     displayData((int16_t)throttle, (int16_t)brake, (int16_t)clutch);
   } else if ( time_click == LONG_MIN) {
@@ -139,29 +139,59 @@ void loop() {
 
 /********************************    EEPROM     ********************************/
 void loadDataEEPROM() {
-  throttle_pct_range_addr     = EEPROM.getAddress(sizeof(byte)); // read in eeprom the throttle param
-  throttle_pct_range          = EEPROM.readByte(throttle_pct_range_addr);
-  throttle_pct_deadzone_addr  = EEPROM.getAddress(sizeof(byte));
-  throttle_pct_deadzone       = EEPROM.readByte(throttle_pct_deadzone_addr);
-  brake_pct_range_addr        = EEPROM.getAddress(sizeof(byte)); // read in eeprom the break param
-  brake_pct_range             = EEPROM.readByte(brake_pct_range_addr);
-  brake_pct_deadzone_addr     = EEPROM.getAddress(sizeof(byte));
-  brake_pct_deadzone          = EEPROM.readByte(brake_pct_deadzone_addr);
-  clutch_pct_range_addr       = EEPROM.getAddress(sizeof(byte)); // read in eeprom the clutch param
-  clutch_pct_range            = EEPROM.readByte(clutch_pct_range_addr);
-  clutch_pct_deadzone_addr    = EEPROM.getAddress(sizeof(byte));
-  clutch_pct_deadzone         = EEPROM.readByte(clutch_pct_deadzone_addr);
+  releaseEEPROM_addr          = EEPROM.getAddress(sizeof(int));
+  releaseEEPROM               = EEPROM.readInt(releaseEEPROM_addr);
 
-  throttle_pct_range    = CHECK_RANGE(throttle_pct_range, 100);
-  brake_pct_range       = CHECK_RANGE(brake_pct_range, 100);
-  clutch_pct_range      = CHECK_RANGE(clutch_pct_range, 100);
-  throttle_pct_deadzone = CHECK_RANGE(throttle_pct_deadzone, 2);
-  brake_pct_deadzone    = CHECK_RANGE(brake_pct_deadzone, 2);
-  clutch_pct_deadzone   = CHECK_RANGE(clutch_pct_deadzone, 2);
+  // If release eeprom are different, restaure default value, else load value into EEPROM
+  if (releaseEEPROM != EEPROM_RELEASE) {
+    #if DEBUG
+      Serial.println("S-EE V KO");
+    #endif
+    releaseEEPROM = EEPROM_RELEASE;
+    throttle_range_min = 0;
+    throttle_range_max = INT16_MAX;
+    brake_pct_range    = 100;
+    clutch_pct_range   = 100;
+    throttle_pct_deadzone = 2;
+    brake_pct_deadzone    = 2;
+    clutch_pct_deadzone   = 2;
+    saveEEPROM();
+  } else {
+    throttle_range_min_addr     = EEPROM.getAddress(sizeof(int)); // read in eeprom the throttle param
+    throttle_range_min          = EEPROM.readInt(throttle_range_min_addr);
+    throttle_range_max_addr     = EEPROM.getAddress(sizeof(int)); 
+    throttle_range_max          = EEPROM.readInt(throttle_range_max_addr);
+    throttle_pct_deadzone_addr  = EEPROM.getAddress(sizeof(byte));
+    throttle_pct_deadzone       = EEPROM.readByte(throttle_pct_deadzone_addr);
+    brake_pct_range_addr        = EEPROM.getAddress(sizeof(byte)); // read in eeprom the break param
+    brake_pct_range             = EEPROM.readByte(brake_pct_range_addr);
+    brake_pct_deadzone_addr     = EEPROM.getAddress(sizeof(byte));
+    brake_pct_deadzone          = EEPROM.readByte(brake_pct_deadzone_addr);
+    clutch_pct_range_addr       = EEPROM.getAddress(sizeof(byte)); // read in eeprom the clutch param
+    clutch_pct_range            = EEPROM.readByte(clutch_pct_range_addr);
+    clutch_pct_deadzone_addr    = EEPROM.getAddress(sizeof(byte));
+    clutch_pct_deadzone         = EEPROM.readByte(clutch_pct_deadzone_addr);
+    #if DEBUG
+      Serial.println("S-EE V OK");
+    #endif
+  }
+
+  throttle_range_min    = CHECK_RANGE_INT16(throttle_range_min, 0);
+  throttle_range_max    = CHECK_RANGE_INT16(throttle_range_max, INT16_MAX);
+
+  brake_pct_range       = CHECK_RANGE_PCT(brake_pct_range, 100);
+  clutch_pct_range      = CHECK_RANGE_PCT(clutch_pct_range, 100);
+  throttle_pct_deadzone = CHECK_RANGE_PCT(throttle_pct_deadzone, 2);
+  brake_pct_deadzone    = CHECK_RANGE_PCT(brake_pct_deadzone, 2);
+  clutch_pct_deadzone   = CHECK_RANGE_PCT(clutch_pct_deadzone, 2);
 }
 
 void saveEEPROM () {
-  EEPROM.writeByte(throttle_pct_range_addr, throttle_pct_range);
+  EEPROM.writeInt(releaseEEPROM_addr, releaseEEPROM);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeInt(throttle_range_min_addr, throttle_range_min);
+  while (!EEPROM.isReady()) delay(1);
+  EEPROM.writeInt(throttle_range_max_addr, throttle_range_max);
   while (!EEPROM.isReady()) delay(1);
   EEPROM.writeByte(throttle_pct_deadzone_addr, throttle_pct_deadzone);
   while (!EEPROM.isReady()) delay(1);
@@ -173,11 +203,14 @@ void saveEEPROM () {
   while (!EEPROM.isReady()) delay(1);
   EEPROM.writeByte(clutch_pct_deadzone_addr, clutch_pct_deadzone);
   while (!EEPROM.isReady()) delay(1);
+  #if DEBUG
+    Serial.println("S-EE SAVE");
+  #endif
 }
 
 /********************************* Read Sendor *********************************/
 
-long readPedal(ADS123X& sensor, byte& range, byte& deadZone, byte idLog) {
+int16_t readPedalLoadCell(ADS123X& sensor, byte& range, byte& deadZone, byte idLog) {
   // read the brake position on the loadcell
   long raw_value, result;
   sensor.read(AIN1, raw_value);                   // value read are from +/-10mv on 40mV ADC range, so we read a 22 bits signal
@@ -187,9 +220,27 @@ long readPedal(ADS123X& sensor, byte& range, byte& deadZone, byte idLog) {
   result = JOYSTICK_DEADZONE(result, deadZone);
 
   // set the brake prosition on the joystick
-  #if DEBUG
-    char str[30];
+  #if DEBUG_SENSOR
+    char str[40];
     sprintf(str, "%d] %ld(+%d-%d) <= %ld-%.2f)", idLog, result, range, deadZone, raw_value, trunc(sensor.get_offset(AIN1)));
+    Serial.println(str);
+  #endif
+
+  return result;
+}
+
+int16_t readPedalHallSensor(AMS_5600& sensor, int& min, int& max, byte& deadZone, byte idLog) {
+  // read the brake position on the loadcell
+  word raw_value;
+  int16_t result;
+  raw_value = sensor.getScaledAngle();             // read the raw value from the AS5600
+  result = map(raw_value, min, max, 0, INT16_MAX); 
+  result = JOYSTICK_DEADZONE(result, deadZone);
+
+  // set the brake prosition on the joystick
+  #if DEBUG_SENSOR
+    char str[30];
+    sprintf(str, "%d] %d(+%d..%d-%d) <= %d)", idLog, result, min, max, deadZone, raw_value);
     Serial.println(str);
   #endif
 
@@ -211,38 +262,53 @@ void checkMenu() {
 
       u8g2.clearBuffer();
 
-      char title[20];
-      title[0] = '\n'; // Add a empty line in the first yellow line
-      u8x8_CopyStringLine(title+1, current_selection-1, parameters_list );
+      char str[20];
+      str[0] = '\n'; // Add a empty line in the first yellow line
+      u8x8_CopyStringLine(str+1, current_selection-1, parameters_list );
 
       byte *v;
       switch (current_selection-1)
       {
       case 0:
-        v = &throttle_pct_range;
+        u8g2.setFontRefHeightAll();
+        current_selection = u8g2.userInterfaceMessage(str, "calibration", NULL, " Ok \n Cancel ");
+        if (current_selection == 1) {
+          throttle_range_min = throttle_sensor.getScaledAngle();
+        }
         break;
       case 1:
-        v = &throttle_pct_deadzone;
+        u8g2.setFontRefHeightAll();
+        current_selection = u8g2.userInterfaceMessage(str, "calibration", NULL, " Ok \n Cancel ");
+        if (current_selection == 1) {
+          throttle_range_max = throttle_sensor.getScaledAngle();
+        }
         break;
       case 2:
-        v = &brake_pct_range;
+        v = &throttle_pct_deadzone;
+        current_selection = u8g2.userInterfaceInputValue(str, "Percent= ", v, 0, 200, 3, " %");
         break;
       case 3:
-        v = &brake_pct_deadzone;
+        v = &brake_pct_range;
+        current_selection = u8g2.userInterfaceInputValue(str, "Percent= ", v, 0, 200, 3, " %");
         break;
       case 4:
-        v = &clutch_pct_range;
+        v = &brake_pct_deadzone;
+        current_selection = u8g2.userInterfaceInputValue(str, "Percent= ", v, 0, 200, 3, " %");
         break;
       case 5:
+        v = &clutch_pct_range;
+        current_selection = u8g2.userInterfaceInputValue(str, "Percent= ", v, 0, 200, 3, " %");
+        break;
+      case 6:
         v = &clutch_pct_deadzone;
+        current_selection = u8g2.userInterfaceInputValue(str, "Percent= ", v, 0, 200, 3, " %");
         break;
       
       default:
         break;
       } 
 
-      int input = u8g2.userInterfaceInputValue(title, "Percent= ", v, 0, 200, 3, " %");
-      if (input == 1) {
+      if (current_selection == 1) {
         drawScreen("Preferences", 30, 11, "SAVING", 35, 45);
         saveEEPROM();
         delay(2000);

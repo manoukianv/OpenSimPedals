@@ -41,7 +41,7 @@
 
 // ************************************** NOT TOUCH ***************************************
 
-#define RELEASE "1.0.0"
+#define RELEASE "2.0.0"
 
 // check if a is in [0-100], else return b
 #define CHECK_RANGE(value, defval)  ( ( ((value) < 0) || ((value) > 100) ) ? (defval): (value) )

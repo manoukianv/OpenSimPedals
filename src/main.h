@@ -23,28 +23,33 @@
  * 
  **/
 
+// *************************************** FEATURES ***************************************
+
+#define DEBUG         false
+#define DEBUG_SENSOR  false
+#define THROTTLE      true
+#define BRAKE         true
+#define CLUTCH        false
+
 
 #include <Arduino.h>
 
 #include <ADS123X.h>
-#include <Joystick.h>
+#if !DEBUG
+  #include <Joystick.h>
+#endif
 #include <U8g2lib.h>
 #include <EEPROMex.h>
 #include <AS5600.h>
 
-// *************************************** FEATURES ***************************************
-
-#define DEBUG     false
-#define THROTTLE  true
-#define BRAKE     false
-#define CLUTCH    false
-
 // ************************************** NOT TOUCH ***************************************
 
 #define RELEASE "2.0.0"
+#define EEPROM_RELEASE 1
 
 // check if a is in [0-100], else return b
-#define CHECK_RANGE(value, defval)  ( ( ((value) < 0) || ((value) > 100) ) ? (defval): (value) )
+#define CHECK_RANGE_PCT(value, defval)  ( ( ((value) < 0) || ((value) > 100) ) ? (defval): (value) )
+#define CHECK_RANGE_INT16(value, defval)  ( ( ((value) < 0) || ((value) > 65536) ) ? (defval): (value) )
 // filter ADC signal and apply the apps gain
 // at 80SPS, with 44nV imprecision (17bit/24) => result is on 15bits, ok for the int16
 #define ADC_FITLER(value)  (value >> 7)
@@ -70,13 +75,18 @@
 const int maxAllowedWrites = 80;
 const int memBase          = 350;
 
-byte throttle_pct_range;
+int releaseEEPROM;
+int throttle_range_min;
+int throttle_range_max;
 byte throttle_pct_deadzone;
 byte brake_pct_range;
 byte brake_pct_deadzone;
 byte clutch_pct_range;
 byte clutch_pct_deadzone;
 
+int releaseEEPROM_addr;
+int throttle_range_min_addr;
+int throttle_range_max_addr;
 int throttle_pct_range_addr;
 int throttle_pct_deadzone_addr;
 int brake_pct_range_addr;
@@ -85,12 +95,14 @@ int clutch_pct_range_addr;
 int clutch_pct_deadzone_addr;
 
 // **************************************** Joystick ****************************************
+#if !DEBUG
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID, JOYSTICK_TYPE_JOYSTICK, 
                     0, 0,
                     true, true, true, 
                     false, false, false,
                     false, false, 
                     false, false, false);
+#endif
 
 #ifdef THROTTLE
 AMS_5600 throttle_sensor;
@@ -107,7 +119,8 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 uint8_t keycode = 0;
 
 const char *parameters_list = 
-  "Throttle Range\n"
+  "Throttle Min\n"
+  "Throttle Max\n"
   "Throttle Dead Zone\n"
   "Brake Range\n"
   "Brake Dead Zone\n"
